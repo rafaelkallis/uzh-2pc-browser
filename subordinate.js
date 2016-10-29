@@ -1,57 +1,52 @@
 let uuid = require('node-uuid').v4;
 let fork = require('child_process').fork;
+let Promise = require('bluebird');
 
 let Subordinate = function () {
     let child_process = fork(`subordinate.js`);
-    let that = this;
 
-    this.request = (type, payload = '', callback = () => ({}), timeout_interval = 100) => {
+    let request = (type, payload, callback, timeout_interval = 500) => {
         let id = uuid();
-        let timeout = setTimeout(() => {
-            console.log(`timeout`);
-            child_process.removeListener(`message`, listener);
-            callback(`timeout`);
-        }, timeout_interval);
-
         let listener = (message) => {
             if (message.id == id) {
                 clearTimeout(timeout);
                 child_process.removeListener(`message`, listener);
-
-                console.log(`message arrived`);
-
                 callback(null, message.type);
             }
         };
+
+        let timeout = setTimeout(() => {
+            child_process.removeListener(`message`, listener);
+            callback(`TIMEOUT`);
+        }, timeout_interval);
 
         child_process.on('message', listener);
         child_process.send({id: id, type: type, payload: payload});
     };
 
-    this.prepare = (payload) => new Promise((resolve, reject) => this.request(`PREPARE`, payload, (err, response) => err ? reject(err) : response != `YES` ? reject(response) : resolve()));
+    this.prepare = (payload) => Promise.fromCallback(callback => request(`PREPARE`, payload, callback));
 
-    this.commit = (payload) => new Promise((resolve) => (function retry() {
-        that.request(`COMMIT`, payload, (err, response) => err || response != `ACK` ? retry() : resolve());
+    this.commit = (payload) => new Promise(resolve => (function retry() {
+        request(`COMMIT`, payload, (err, response) => err || response != `ACK` ? retry() : resolve(`ACK`));
     })());
 
-    this.abort = (payload) => new Promise((resolve) => (function retry() {
-        that.request(`ABORT`, payload, (err, response) => err || response != `ACK` ? retry() : resolve());
+    this.abort = (payload) => new Promise(resolve => (function retry() {
+        request(`ABORT`, payload, (err, response) => err || response != `ACK` ? retry() : resolve(`ACK`));
     })());
 };
 
 module.exports = Subordinate;
 
 process.on('message', (message) => {
-    console.log(message);
     switch (message.type) {
         case `PREPARE`:
-            respond(message.id, `YES`);
+            Math.random() < 0.85 ? respond(message.id, `YES`) : Math.random() < 0.5 && respond(message.id, 'NO');
             break;
         case `COMMIT`:
-            respond(message.id, `ACK`);
+            Math.random() < 0.85 && respond(message.id, `ACK`);
             break;
         case `ABORT`:
-            respond(message.id, `ACK`);
+            Math.random() < 0.85 && respond(message.id, `ACK`);
             break;
     }
 });

@@ -5,7 +5,7 @@ let Subordinate = require('./subordinate');
 
 let subordinates = [];
 
-for (let i = 0; i < 1; ++i) {
+for (let i = 0; i < 4; ++i) {
     subordinates.push(new Subordinate());
 }
 
@@ -14,12 +14,44 @@ app.get(`/`, (req, res) => {
         id: 'some_id',
         payload: 'some_payload'
     };
-    new Promise((resolve) => console.log(`preparing`) || resolve())
-        .then(Promise.all(subordinates.map(worker => worker.prepare(payload))))
-        .then(console.log(`commiting`))
-        .then(Promise.all(subordinates.map(worker => worker.commit(payload))))
+
+    /* --* DEBUG *--
+    new Promise(resolve => console.log(`preparing`) || resolve())
+        .then(() => Promise.all(subordinates.map(sub => sub.prepare(payload))))
+        .then(responses => console.log('responses:', responses) || Promise.resolve(responses))
+        .then(responses => new Promise((resolve, reject) => responses.indexOf('NO') == -1 ? resolve('YES') : reject('NO')))
+        .then(() => console.log(`committing`))
+        .then(() => Promise.all(subordinates.map(sub => sub.commit(payload))))
+        .then((responses) => console.log('responses:', responses))
         .then(() => res.send(`OK\n`))
-        .catch((err) => res.send(`ABORTED\n`) || subordinates.map(worker => worker.abort(payload)));
+        .catch((err) => {
+            err.message == 'TIMEOUT' && console.error('timeout on prepare');
+            console.log('aborting');
+            Promise.all(subordinates.map(worker => worker.abort(payload)))
+                .then(results => console.log('responses:', results))
+                .then(() => res.send('ABORTED\n'));
+        });
+        */
+
+    Promise.all(subordinates.map(sub => sub.prepare(payload)))
+        .then(responses => new Promise((resolve, reject) => responses.indexOf('NO') == -1 ? resolve('YES') : reject('NO')))
+        .then(() => Promise.all(subordinates.map(sub => sub.commit(payload))))
+        .then(() => res.send(`OK\n`))
+        .catch(() => {
+            Promise.all(subordinates.map(worker => worker.abort(payload)))
+                .then(() => res.send('ABORTED\n'));
+        });
 });
 
 app.listen(8080);
+
+
+// --* DEBUG *--
+
+// let sub1 = new Subordinate();
+
+// sub1.prepare('payload').then(result => console.log(result)).catch(err => console.error(err.message));
+
+// sub1.commit('payload').then(result => console.log(result));
+
+// sub1.abort('payload').then(result => console.log(result));
