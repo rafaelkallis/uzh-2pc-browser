@@ -24,14 +24,14 @@ let Subordinate = function () {
         child_process.send({id: id, type: type, payload: payload});
     };
 
-    this.prepare = (payload) => Promise.fromCallback(callback => request(`PREPARE`, payload, callback));
+    this.prepare = (payload) => new Promise((resolve, reject) => request(`PREPARE`, payload, (err, response) => err || response != `YES` ? reject() : resolve()));
 
     this.commit = (payload) => new Promise(resolve => (function retry() {
-        request(`COMMIT`, payload, (err, response) => err || response != `ACK` ? retry() : resolve(`ACK`));
+        request(`COMMIT`, payload, (err, response) => err || response != `ACK` ? retry() : resolve());
     })());
 
     this.abort = (payload) => new Promise(resolve => (function retry() {
-        request(`ABORT`, payload, (err, response) => err || response != `ACK` ? retry() : resolve(`ACK`));
+        request(`ABORT`, payload, (err, response) => err || response != `ACK` ? retry() : resolve());
     })());
 };
 

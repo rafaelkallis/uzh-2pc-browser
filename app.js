@@ -15,29 +15,13 @@ app.get(`/`, (req, res) => {
         payload: 'some_payload'
     };
 
-    /* --* DEBUG *--
     new Promise(resolve => console.log(`preparing`) || resolve())
         .then(() => Promise.all(subordinates.map(sub => sub.prepare(payload))))
-        .then(responses => console.log('responses:', responses) || Promise.resolve(responses))
-        .then(responses => new Promise((resolve, reject) => responses.indexOf('NO') == -1 ? resolve('YES') : reject('NO')))
         .then(() => console.log(`committing`))
-        .then(() => Promise.all(subordinates.map(sub => sub.commit(payload))))
-        .then((responses) => console.log('responses:', responses))
-        .then(() => res.send(`OK\n`))
-        .catch((err) => {
-            err.message == 'TIMEOUT' && console.error('timeout on prepare');
-            console.log('aborting');
-            Promise.all(subordinates.map(worker => worker.abort(payload)))
-                .then(results => console.log('responses:', results))
-                .then(() => res.send('ABORTED\n'));
-        });
-        */
-
-    Promise.all(subordinates.map(sub => sub.prepare(payload)))
-        .then(responses => new Promise((resolve, reject) => responses.indexOf('NO') == -1 ? resolve('YES') : reject('NO')))
         .then(() => Promise.all(subordinates.map(sub => sub.commit(payload))))
         .then(() => res.send(`OK\n`))
         .catch(() => {
+            console.log('aborting');
             Promise.all(subordinates.map(worker => worker.abort(payload)))
                 .then(() => res.send('ABORTED\n'));
         });
