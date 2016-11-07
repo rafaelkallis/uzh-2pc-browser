@@ -10,6 +10,7 @@ const Subordinate = require('./subordinate');
  * @type {Coordinator}
  */
 let coordinator = new Coordinator(8080);
+coordinator.start(() => console.log('coordinator started'));
 
 /**
  * Connecting to socket_server server (coordinator)
