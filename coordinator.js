@@ -1,7 +1,7 @@
 /**
  * Created by rafaelkallis on 03.11.16.
  */
-const Promise = ('bluebird');
+const Promise = require('bluebird');
 const express = require('express');
 const socket = require('socket.io');
 const http = require('http');
