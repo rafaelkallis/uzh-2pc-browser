@@ -29,6 +29,14 @@ class Subordinate {
         };
         this._coordinator_med = new CoordinatorMediator(id, coordinator_host, message_handler);
     }
+
+    start() {
+        this._coordinator_med.start();
+    }
+
+    stop() {
+        this._coordinator_med.stop();
+    }
 }
 
 module.exports = Subordinate;

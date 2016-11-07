@@ -21,8 +21,7 @@ let sub2 = new Subordinate('subordinate2', 'http://localhost:8080');
 let sub3 = new Subordinate('subordinate3', 'http://localhost:8080');
 let sub4 = new Subordinate('subordinate4', 'http://localhost:8080');
 
-/*
-    Upcoming:
-    sub1.stop();
-    sub1.start();
- */
+sub1.start();
+sub2.start();
+sub3.start();
+sub4.start();

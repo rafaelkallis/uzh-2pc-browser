@@ -22,21 +22,27 @@ const ACK = constants.ACK;
  */
 class CoordinatorMediator {
     constructor(id, coordinator_host, message_handler) {
-        this._coordinator_socket = socket_client(coordinator_host);
-        this._coordinator_socket.on('connect', () => console.log('connected with coordinator') || this._handshake(id));
-        this._coordinator_socket.on('disconnect', () => console.log('disconnected from coordinator'));
-        this._handle_message(message_handler);
+        this._id = id;
+        this._coordinator_host = coordinator_host;
+        this._message_handler = message_handler;
     }
 
     _handshake(id) {
-        console.log('sending handshake to coordinator');
+        console.log(`${this._id} send handshake to coordinator`);
         this._coordinator_socket.emit('handshake', id);
     }
 
-    _handle_message(handle_message) {
+    start() {
+        this._coordinator_socket = socket_client(this._coordinator_host);
+        this._coordinator_socket.on('connect', () => console.log(`${this._id} connected with coordinator`) || this._handshake(this._id));
+        this._coordinator_socket.on('disconnect', () => console.log(`${this._id} has disconnected from coordinator`));
         this._coordinator_socket.on('message', (message) =>
-        console.log(`received ${JSON.stringify(message)}`) || handle_message(message.type, message.payload, (result =>
-        console.log(`send ${JSON.stringify({id: message.id, type: result})}`) || this._coordinator_socket.send({id: message.id, type: result}))));
+        console.log(`${this._id} has received ${JSON.stringify(message)}`) || this._message_handler(message.type, message.payload, (result =>
+        console.log(`${this._id} send ${JSON.stringify({id: message.id, type: result})}`) || this._coordinator_socket.send({id: message.id, type: result}))));
+    }
+
+    stop() {
+        this._coordinator_socket.close();
     }
 }
 

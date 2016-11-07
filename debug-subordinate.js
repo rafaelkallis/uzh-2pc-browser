@@ -3,4 +3,8 @@
  */
 const Subordinate = require('./subordinate');
 
-new Subordinate(process.env.ID, 'http://localhost:8080');
+let sub = new Subordinate(process.env.ID, 'http://localhost:8080');
+
+sub.start();
+
+setTimeout(() => sub.stop(), 5000);
