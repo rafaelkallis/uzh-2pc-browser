@@ -12,7 +12,7 @@ const Subordinate = require('./subordinate');
 let coordinator = new Coordinator(8080);
 
 /**
- * Connecting to socket server (coordinator)
+ * Connecting to socket_server server (coordinator)
  * @type {Subordinate}
  */
 let sub1 = new Subordinate('subordinate1', 'http://localhost:8080');

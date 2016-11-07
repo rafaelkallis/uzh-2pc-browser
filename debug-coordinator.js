@@ -5,3 +5,7 @@
 const Coordinator = require('./coordinator');
 
 let coordinator = new Coordinator(8080);
+
+coordinator.start(() => {
+    // coordinator.stop();
+});

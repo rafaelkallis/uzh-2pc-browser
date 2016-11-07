@@ -1,7 +1,7 @@
 /**
  * Created by rafaelkallis on 03.11.16.
  */
-const Promise = ('bluebird');
+const Promise = require('bluebird');
 const uuid = require('node-uuid').v4;
 const PrepareNoError = require('./errors').PrepareNoVoteError;
 const ACKError = require('./errors').ACKError;
@@ -23,12 +23,13 @@ const ACK = constants.ACK;
 class CoordinatorMediator {
     constructor(id, coordinator_host, message_handler) {
         this._coordinator_socket = socket_client(coordinator_host);
-        this._coordinator_socket.on('connect', () => this._handshake(id));
+        this._coordinator_socket.on('connect', () => console.log('connected with coordinator') || this._handshake(id));
+        this._coordinator_socket.on('disconnect', () => console.log('disconnected from coordinator'));
         this._handle_message(message_handler);
     }
 
     _handshake(id) {
-        console.log('handshake');
+        console.log('sending handshake to coordinator');
         this._coordinator_socket.emit('handshake', id);
     }
 
@@ -41,7 +42,7 @@ class CoordinatorMediator {
 
 /**
  * Used by Coordinator to make requests to Subordinate
- * @param socket: the subordinate's socket.
+ * @param socket_server: the subordinate's socket_server.
  */
 class SubordinateMediator {
     constructor(subordinate_id, socket) {
