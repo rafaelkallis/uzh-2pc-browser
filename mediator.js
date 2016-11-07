@@ -1,7 +1,7 @@
 /**
  * Created by rafaelkallis on 03.11.16.
  */
-const Promise = ('bluebird');
+const Promise = require('bluebird');
 const uuid = require('node-uuid').v4;
 const PrepareNoError = require('./errors').PrepareNoVoteError;
 const ACKError = require('./errors').ACKError;
