@@ -4,4 +4,4 @@
 
 const Coordinator = require('./coordinator');
 
-new Coordinator(8080);
+let coordinator = new Coordinator(8080);

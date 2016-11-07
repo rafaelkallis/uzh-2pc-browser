@@ -1,15 +1,19 @@
 /**
  * Created by rafaelkallis on 03.11.16.
  */
+const Promise = ('bluebird');
 const express = require('express');
 const socket = require('socket.io');
 const http = require('http');
-const fs = require('fs');
 const uuid = require('node-uuid').v4;
-const node_persist = require('node-persist');
+const SubordinateMediator = require('./mediator').SubordinateMediator;
+// const node_persist = require('node-persist');
+
+/**
+ * Constants
+ */
 const errors = require('./errors');
 const constants = require('./constants');
-const SubordinateMediator = require('./mediator').SubordinateMediator;
 const DisconnectedError = errors.DisconnectedError;
 const ACKError = errors.ACKError;
 const PrepareNoVoteError = errors.PrepareNoVoteError;
@@ -19,22 +23,24 @@ const FAIL_MSG = constants.FAIL_MSG;
 class Coordinator {
     constructor(port) {
         this._app = express();
-        this._commit_cache = node_persist;
-        this._abort_cache = node_persist;
-        this._subordinate_cache = node_persist;
+        // this._commit_cache = node_persist;
+        // this._abort_cache = node_persist;
+        // this._subordinate_cache = node_persist;
         this._server = http.Server(this._app);
         this._socket_server = socket(this._server);
         this._subordinate_mediators_map = {}; // sub_id -> sub_med
         this._disconnected = new Set(); // sub_id
-        this._subordinate_cache.init()
-            .then(() => this._disconnected.add(this._subordinate_cache.keys()));
-        this._server.listen(port);
-        this._commit_cache.init()
-            .then(() => this._commit_cache.forEach((id, payload) => this._commit_mediators(payload)
-                .then(this._commit_cache.removeItem(id))));
-        this._abort_cache.init()
-            .then(() => this._abort_cache.forEach((id, payload) => this._commit_mediators(payload)
-                .then(this._abort_cache.removeItem(id))));
+        // this._subordinate_cache.init()
+        //     .then(() => this._disconnected.add(this._subordinate_cache.keys()));
+        // this._server.listen(port);
+        // this._commit_cache.init()
+        //     .then(() => this._commit_cache.forEach((id, payload) => this._commit_mediators(payload)
+        //         .then(this._commit_cache.removeItem(id))));
+        // this._abort_cache.init()
+        //     .then(() => this._abort_cache.forEach((id, payload) => this._commit_mediators(payload)
+        //         .then(this._abort_cache.removeItem(id))));
+
+        this._server.listen(port, () => console.log(`listening on port ${port}`));
 
         this._app.put(`/`, (req, res) => {
 
@@ -45,17 +51,18 @@ class Coordinator {
 
             this._disconnect_check()
                 .then(() => this._prepare_mediators(transaction))
-                .then(() => this._commit_cache.setItem(transaction.id, transaction.payload))
+                // .then(() => this._commit_cache.setItem(transaction.id, transaction.payload))
                 .then(() => this._commit_mediators(transaction))
-                .then(() => this._commit_cache.removeItem(transaction.id))
+                // .then(() => this._commit_cache.removeItem(transaction.id))
                 .then(() => res.send(SUCCESS_MSG))
                 .catch(DisconnectedError, () => {
                     res.send(FAIL_MSG);
                 })
                 .catch(PrepareNoVoteError, () => {
-                    this._abort_cache.setItem(transaction.id, transaction.payload)
-                        .then(() => this._abort_mediators(transaction))
-                        .then(() => this._abort_cache.removeItem(transaction.id))
+                    // this._abort_cache.setItem(transaction.id, transaction.payload)
+                    //     .then(() => this._abort_mediators(transaction))
+                    // .then(() => this._abort_cache.removeItem(transaction.id))
+                    this._abort_mediators(transaction)
                         .then(() => res.send(FAIL_MSG));
                 });
         });
@@ -82,6 +89,8 @@ class Coordinator {
 
     _commit_mediators(payload) {
         let attempt = 0;
+
+
         return Promise.all(this._subordinate_mediators.map(sub_med => new Promise(resolve => (function retry() {
             sub_med.commit(payload)
                 .then(resolve)
@@ -109,8 +118,6 @@ class Coordinator {
     get _subordinate_mediators() {
         return Object.keys(this._subordinate_mediators_map).map(sub_id => this._subordinate_mediators_map[sub_id]);
     }
-
-    _
 }
 
 module.exports = Coordinator;
