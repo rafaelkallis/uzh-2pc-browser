@@ -1,133 +1,143 @@
 /**
  * Created by rafaelkallis on 03.11.16.
  */
-const Promise = require('bluebird');
-const express = require('express');
-const socket_server = require('socket.io');
-const http = require('http');
-const uuid = require('node-uuid').v4;
-const SubordinateMediator = require('./mediator').SubordinateMediator;
-// const node_persist = require('node-persist');
+import { Promise } from 'bluebird';
+import { uuid } from 'node-uuid';
+import { Observable } from './observable';
+import { PREPARE, COMMIT, ABORT, FAIL, SUCCESS } from './constants';
+import { PrepareNoVoteError } from './errors';
 
-/**
- * Constants
- */
-const errors = require('./errors');
-const constants = require('./constants');
-const DisconnectedError = errors.DisconnectedError;
-const ACKError = errors.ACKError;
-const PrepareNoVoteError = errors.PrepareNoVoteError;
-const SUCCESS_MSG = constants.SUCCESS_MSG;
-const FAIL_MSG = constants.FAIL_MSG;
-
-class Coordinator {
-    constructor(port) {
-        this._app = express();
-        this._port = port;
-        // this._commit_cache = node_persist;
-        // this._abort_cache = node_persist;
-        // this._subordinate_cache = node_persist;
-        this._subordinate_mediators_map = {}; // sub_id -> sub_med
-        this._disconnected = new Set(); // sub_id
-
+export class Coordinator extends Observable {
+    constructor() {
+        super();
+        this._active = true;
+        this._subordinates = [];
+        this._log_listeners = [];
     }
 
-    _prepare_mediators(payload) {
-        return Promise.all(this._subordinate_mediators.map(sub_med => sub_med.prepare(payload)));
+    get active() {
+        return this._active;
     }
 
-    _commit_mediators(payload) {
-        let attempt = 0;
-
-
-        return Promise.all(this._subordinate_mediators.map(sub_med => new Promise(resolve => (function retry() {
-            sub_med.commit(payload)
-                .then(resolve)
-                .catch(ACKError, (error) => setTimeout(retry, Coordinator._exponential_backoff(++attempt)));
-        })())));
+    set active(active) {
+        if (this.active !== active) {
+            this._active = active;
+            this._log(active ? "Turned On" : "Turned Off");
+            this._notify();
+        }
     }
 
-    _abort_mediators(payload) {
-        let attempt = 0;
-        return Promise.all(this._subordinate_mediators.map(sub_med => new Promise(resolve => (function retry() {
-            sub_med.abort(payload)
-                .then(resolve)
-                .catch(ACKError, (error) => setTimeout(retry, Coordinator._exponential_backoff(++attempt)));
-        })())));
+    get subordinates() {
+        return this._subordinates;
+    }
+    set subordinates(subordinates) {
+        if (this.subordinates !== subordinates) {
+            this._subordinates = subordinates;
+            this._notify();
+        }
     }
 
-    _disconnect_check() {
-        return new Promise((resolve, reject) => this._disconnected.size == 0 ? resolve() : reject(new DisconnectedError()));
+    listen(log_listener) {
+        this._log_listeners.push(log_listener);
+    }
+
+    _log(entry, duration = 0) {
+        return new Promise(resolve => {
+            this._log_listeners.forEach(log_listener => log_listener(entry, duration));
+            resolve();
+        });
+    }
+
+    perform_transaction(transaction, delay = 0, timeout = 1000) {
+        this._prepare(transaction, delay, timeout)
+            .then(
+            () => this._commit(transaction, delay, timeout)
+                .then(() => this._log(`${transaction.id}: Completed`))
+                .then(() => transaction.phase = SUCCESS),
+            err => {
+                console.log(err.message);
+                transaction.phase = "Aborting";
+                this._abort(transaction, delay, timeout)
+                    .then(() => this._log(`${transaction.id}: Completed`))
+                    .then(() => transaction.phase = "Aborted");
+            });
+    }
+
+    toggle() {
+        if (this.active = !this.active) {
+            /*
+             *  TODO: Check logs for any pending transactions
+             */
+        }
+    }
+
+    attach_subordinate(subordinate) {
+        this.subordinates = this.subordinates.concat(subordinate);
+    }
+
+    _prepare(transaction, delay, timeout) {
+        return this.is_active()
+            .then(() => this._log(`${transaction.id}: Sending Prepare`, delay))
+            .then(() => transaction.phase = PREPARE)
+            .then(() => Promise.all(this.subordinates.map(sub =>
+                this.is_active()
+                    .delay(delay)
+                    .then(() => sub.prepare(transaction, delay))
+                    .timeout(timeout)
+            )));
+    }
+
+    _commit(transaction, delay, timeout) {
+        return this.is_active()
+            .then(() => this._log(`${transaction.id}: Sending Commit`, delay))
+            .then(() => transaction.phase = COMMIT)
+            .then(() => Promise.all(this.subordinates.map(sub => this._commit_sub(sub, transaction, delay, timeout))));
+    }
+
+    _commit_sub(sub, transaction, delay, timeout) {
+        let attempt_n = 0;
+        let attempt_commit = () =>
+            this.is_active()
+                .then(() => {
+                    if (attempt_n > 0) {
+                        return this._log(`${transaction.id}: retrying Commit on ${sub.id} (${attempt_n})`, delay);
+                    }
+                })
+                .delay(delay)
+                .then(() => sub.commit(transaction, delay))
+                .timeout(timeout)
+                .catch(Promise.TimeoutError, () => Promise.delay(Coordinator._exponential_backoff(++attempt_n)).then(() => attempt_commit()));
+        return attempt_commit();
+    }
+
+    _abort(transaction, delay, timeout) {
+        return this.is_active()
+            .then(() => this._log(`${transaction.id}: Sending Abort`, delay))
+            .then(() => transaction.phase = ABORT)
+            .then(() => Promise.all(this.subordinates.map(sub => this._abort_sub(sub, transaction, delay, timeout))));
+    }
+
+    _abort_sub(sub, transaction, delay, timeout) {
+        let attempt_n = 0;
+        let attempt_abort = () =>
+            this.is_active()
+                .then(() => {
+                    if (attempt_n > 0) {
+                        return this._log(`${transaction.id}: retrying Abort on ${sub.id} (${attempt_n})`, delay);
+                    }
+                })
+                .delay(delay)
+                .then(() => sub.abort(transaction, delay))
+                .timeout(timeout)
+                .catch(Promise.TimeoutError, () => Promise.delay(Coordinator._exponential_backoff(++attempt_n)).then(() => attempt_abort()));
+        return attempt_abort();
     }
 
     static _exponential_backoff(attempt) {
         return 500 * Math.pow(2, attempt);
     }
 
-    get _subordinate_mediators() {
-        return Object.keys(this._subordinate_mediators_map).map(sub_id => this._subordinate_mediators_map[sub_id]);
+    is_active() {
+        return new Promise(resolve => this.active && resolve());
     }
-
-    stop() {
-        this._socket_server.close();
-        console.log('stopped');
-    }
-
-    start(callback = () => ({})) {
-        this._server = http.Server(this._app);
-        this._socket_server = socket_server(this._server);
-        // this._subordinate_cache.init()
-        //     .then(() => this._disconnected.add(this._subordinate_cache.keys()));
-        // this._server.listen(port);
-        // this._commit_cache.init()
-        //     .then(() => this._commit_cache.forEach((id, payload) => this._commit_mediators(payload)
-        //         .then(this._commit_cache.removeItem(id))));
-        // this._abort_cache.init()
-        //     .then(() => this._abort_cache.forEach((id, payload) => this._commit_mediators(payload)
-        //         .then(this._abort_cache.removeItem(id))));
-
-        this._app.put(`/`, (req, res) => {
-
-            let transaction = {
-                id: uuid(),
-                payload: 'some_payload'
-            };
-
-            this._disconnect_check()
-                .then(() => this._prepare_mediators(transaction))
-                // .then(() => this._commit_cache.setItem(transaction.id, transaction.payload))
-                .then(() => this._commit_mediators(transaction))
-                // .then(() => this._commit_cache.removeItem(transaction.id))
-                .then(() => res.send(SUCCESS_MSG))
-                .catch(DisconnectedError, () => {
-                    res.send(FAIL_MSG);
-                })
-                .catch(PrepareNoVoteError, () => {
-                    // this._abort_cache.setItem(transaction.id, transaction.payload)
-                    //     .then(() => this._abort_mediators(transaction))
-                    // .then(() => this._abort_cache.removeItem(transaction.id))
-                    this._abort_mediators(transaction)
-                        .then(() => res.send(FAIL_MSG));
-                });
-        });
-
-        this._socket_server.on('connect', (subordinate_socket) => {
-            subordinate_socket.once('handshake', (subordinate_id) => {
-                console.log(`handshake from ${subordinate_id}`);
-
-                if (this._subordinate_mediators_map[subordinate_id]) {
-                    this._subordinate_mediators_map[subordinate_id].subordinate_socket = subordinate_socket;
-                } else {
-                    this._subordinate_mediators_map[subordinate_id] = new SubordinateMediator(subordinate_id, subordinate_socket);
-                }
-
-                this._disconnected.delete(subordinate_id);
-                subordinate_socket.once('disconnect', () => console.error(`${subordinate_id} disconnected`) || this._disconnected.add(subordinate_id));
-            });
-        });
-
-        this._server.listen(this._port, () => console.log(`listening on port ${this._port}`) || callback());
-    }
-}
-
-module.exports = Coordinator;
+};

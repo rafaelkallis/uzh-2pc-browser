@@ -1,42 +1,78 @@
 /**
  * Created by rafaelkallis on 03.11.16.
  */
-const CoordinatorMediator = require('./mediator').CoordinatorMediator;
-const constants = require('./constants');
-const PREPARE = constants.PREPARE;
-const COMMIT = constants.COMMIT;
-const ABORT = constants.ABORT;
-const YES = constants.YES;
-const NO = constants.NO;
-const ACK = constants.ACK;
-const BUG_NO = constants.BUG_NO;
-const BUG_TIMEOUT = constants.BUG_TIMEOUT;
+import { PREPARE, COMMIT, ABORT, YES, NO, ACK, TIMEOUT, BUG_NO, BUG_TIMEOUT } from './constants';
+import { PrepareNoVoteError } from './errors';
+import { Observable } from './observable';
+import { Promise } from 'bluebird';
 
-class Subordinate {
-    constructor(id, coordinator_host) {
-        let message_handler = (type, payload, callback) => {
-            switch (type) {
-                case PREPARE:
-                    payload == BUG_NO ? callback(NO) : payload != BUG_TIMEOUT && callback(YES);
-                    break;
-                case COMMIT:
-                    payload == BUG_TIMEOUT ? setTimeout(() => callback(ACK), 2000) : callback(ACK);
-                    break;
-                case ABORT:
-                    payload == BUG_TIMEOUT ? setTimeout(() => callback(ACK), 2000) : callback(ACK);
-                    break;
-            }
-        };
-        this._coordinator_med = new CoordinatorMediator(id, coordinator_host, message_handler);
+export class Subordinate extends Observable {
+    constructor(id) {
+        super();
+        this._id = id;
+        this._active = true;
+        this._log_listeners = [];
     }
 
-    start() {
-        this._coordinator_med.start();
+    get active() {
+        return this._active;
     }
 
-    stop() {
-        this._coordinator_med.stop();
+    set active(active) {
+        if (this.active !== active) {
+            this._active = active;
+            this._notify();
+            this._log(this.active ? "Turned On" : "Turned Off");
+        }
+    }
+
+    get id() {
+        return this._id;
+    }
+
+    listen(log_listener) {
+        this._log_listeners.push(log_listener);
+    }
+
+    _log(entry, duration = 0) {
+        return new Promise(resolve => {
+            this._log_listeners.forEach(log_listener => log_listener(entry, duration));
+            resolve();
+        });
+    }
+
+    toggle() {
+        this.active = !this.active;
+    }
+
+    is_active() {
+        return new Promise((resolve, reject) => this.active && resolve());
+    }
+
+    prepare(transaction, delay) {
+        return this.is_active()
+            .then(() => {
+                if (true) {
+                    return this._log(`${transaction.id}: YES`, delay)
+                        .delay(delay);
+                } else {
+                    return this._log(`${transaction.id}: NO`, delay)
+                        .delay(delay)
+                        .then(() => Promise.reject(new PrepareNoVoteError()));
+                }
+            });
+    }
+
+    commit(transaction, delay) {
+        return this.is_active()
+            .then(() => this._log(`${transaction.id}: ACK`, delay))
+            .delay(delay);
+    }
+
+    abort(transaction, delay) {
+        return this.is_active()
+            .then(() => this._log(`${transaction.id}: ACK`, delay))
+            .delay(delay);
+
     }
 }
-
-module.exports = Subordinate;
