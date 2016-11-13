@@ -67,6 +67,7 @@ ready(() => {
         document.getElementById('sub-crash-commit-receiving').checked && bugs.push('sub-crash-commit-receiving');
         document.getElementById('sub-crash-commit-sending').checked && bugs.push('sub-crash-commit-sending');
         document.getElementById('sub-crash-abort-receiving').checked && bugs.push('sub-crash-abort-receiving');
+        document.getElementById('sub-crash-abort-sending').checked && bugs.push('sub-crash-abort-sending');
         document.getElementById('coord-crash-prepare').checked && bugs.push('coord-crash-prepare');
         document.getElementById('coord-crash-commit').checked && bugs.push('coord-crash-commit');
         document.getElementById('coord-crash-abort').checked && bugs.push('coord-crash-abort');

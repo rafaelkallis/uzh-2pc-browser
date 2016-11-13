@@ -163,7 +163,7 @@ export class Coordinator extends Observable {
                 .then(() => sub.is_active())
                 .delay(delay)
                 .then(() => this.is_active())
-                .then(() => sub.abort(transaction, delay))
+                .then(() => sub.abort(transaction, delay, bugs))
                 .timeout(timeout) //
                 .catch(Promise.TimeoutError, SubordinateNotActiveError, () => Promise.delay(Coordinator._exponential_backoff(++attempt_n)).then(() => attempt_abort()));
         return attempt_abort();

@@ -91,7 +91,7 @@ export class Subordinate extends Observable {
             .then(() => this.is_active());
     }
 
-    abort(transaction, delay) {
+    abort(transaction, delay, bugs) {
         let crash = bugs.includes('sub-crash-abort-sending') && Math.random() < 0.33;
 
         return this.is_active()

@@ -77,6 +77,7 @@ ready(function () {
         document.getElementById('sub-crash-commit-receiving').checked && bugs.push('sub-crash-commit-receiving');
         document.getElementById('sub-crash-commit-sending').checked && bugs.push('sub-crash-commit-sending');
         document.getElementById('sub-crash-abort-receiving').checked && bugs.push('sub-crash-abort-receiving');
+        document.getElementById('sub-crash-abort-sending').checked && bugs.push('sub-crash-abort-sending');
         document.getElementById('coord-crash-prepare').checked && bugs.push('coord-crash-prepare');
         document.getElementById('coord-crash-commit').checked && bugs.push('coord-crash-commit');
         document.getElementById('coord-crash-abort').checked && bugs.push('coord-crash-abort');
@@ -397,7 +398,7 @@ var Coordinator = exports.Coordinator = function (_Observable) {
                 }).delay(delay).then(function () {
                     return _this8.is_active();
                 }).then(function () {
-                    return sub.abort(transaction, delay);
+                    return sub.abort(transaction, delay, bugs);
                 }).timeout(timeout) //
                 .catch(_bluebird.Promise.TimeoutError, _errors.SubordinateNotActiveError, function () {
                     return _bluebird.Promise.delay(Coordinator._exponential_backoff(++attempt_n)).then(function () {
@@ -6566,7 +6567,7 @@ var Subordinate = exports.Subordinate = function (_Observable) {
         }
     }, {
         key: 'abort',
-        value: function abort(transaction, delay) {
+        value: function abort(transaction, delay, bugs) {
             var _this5 = this;
 
             var crash = bugs.includes('sub-crash-abort-sending') && Math.random() < 0.33;
