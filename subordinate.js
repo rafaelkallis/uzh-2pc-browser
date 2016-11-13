@@ -2,7 +2,7 @@
  * Created by rafaelkallis on 03.11.16.
  */
 import { PREPARE, COMMIT, ABORT, YES, NO, ACK, TIMEOUT, BUG_NO, BUG_TIMEOUT } from './constants';
-import { PrepareNoVoteError } from './errors';
+import { PrepareNoVoteError, SubordinateNotActiveError } from './errors';
 import { Observable } from './observable';
 import { Promise } from 'bluebird';
 
@@ -22,7 +22,7 @@ export class Subordinate extends Observable {
         if (this.active !== active) {
             this._active = active;
             this._notify();
-            this._log(this.active ? "Turned On" : "Turned Off");
+            this._log(this.active ? "Online" : "Offline");
         }
     }
 
@@ -46,33 +46,63 @@ export class Subordinate extends Observable {
     }
 
     is_active() {
-        return new Promise((resolve, reject) => this.active && resolve());
+        return this.active ? Promise.resolve() : Promise.reject(new SubordinateNotActiveError());
     }
 
-    prepare(transaction, delay) {
+    prepare(transaction, delay, bugs) {
+        let vote_no = bugs.includes('sub-vote-no') && Math.random() < 0.33;
+        let crash = bugs.includes('sub-crash-prepare-sending') && Math.random() < 0.33;
+
         return this.is_active()
             .then(() => {
-                if (true) {
+                if (!vote_no) {
                     return this._log(`${transaction.id}: YES`, delay)
-                        .delay(delay);
                 } else {
                     return this._log(`${transaction.id}: NO`, delay)
-                        .delay(delay)
-                        .then(() => Promise.reject(new PrepareNoVoteError()));
+                }
+            })
+            .then(() => {
+                if (crash) {
+                    setTimeout(() => this.active = false, delay * 0.6);
+                }
+            })
+            .delay(delay)
+            .then(() => this.is_active())
+            .then(() => {
+                if (!vote_no) {
+                    return Promise.resolve();
+                } else {
+                    return Promise.reject(new PrepareNoVoteError());
                 }
             });
     }
 
-    commit(transaction, delay) {
+    commit(transaction, delay, bugs) {
+        let crash = bugs.includes('sub-crash-commit-sending') && Math.random() < 0.33;
+
         return this.is_active()
             .then(() => this._log(`${transaction.id}: ACK`, delay))
-            .delay(delay);
+            .then(() => {
+                if (crash) {
+                    setTimeout(() => this.active = false, delay * 0.5);
+                }
+            })
+            .delay(delay)
+            .then(() => this.is_active());
     }
 
     abort(transaction, delay) {
+        let crash = bugs.includes('sub-crash-abort-sending') && Math.random() < 0.33;
+
         return this.is_active()
             .then(() => this._log(`${transaction.id}: ACK`, delay))
-            .delay(delay);
+            .then(() => {
+                if (crash) {
+                    setTimeout(() => this.active = false, delay * 0.5);
+                }
+            })
+            .delay(delay)
+            .then(() => this.is_active());
 
     }
 }

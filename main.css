@@ -69,3 +69,14 @@ html, body {
 .small {
     font-size: 1.1em;
 }
+
+.explosion {
+    z-index: 10;
+    position: absolute;
+    width: 284px;
+    height: 400px;
+    background-repeat: no-repeat;
+    background-size: 284px 400px;
+    background-image: url(./explosion.gif);
+
+}

@@ -15,6 +15,8 @@ export class Notification {
         this._inner.classList.add('progress-inner');
         this._element.appendChild(this._inner);
 
+        this._is_progress_active = false;
+
         duration && this.start_progress(duration);
     }
 
@@ -33,14 +35,24 @@ export class Notification {
     }
 
     start_progress(duration) {
-        this._inner.style.width = '0';
-        let ms_passed = 100;
-        let interval = setInterval(() => {
-            ms_passed += increment;
-            this._inner.style.width = (`${50 * (1 + Math.cos(pi + pi * Math.min(ms_passed / duration, 1)))}%`);
-            if (ms_passed > duration) {
-                clearInterval(interval);
-            }
-        }, increment);
+        if (!this._is_progress_active) {
+            this._is_progress_active = true;
+            this._inner.style.width = '0';
+            let ms_passed = 100;
+            this._interval = setInterval(() => {
+                ms_passed += increment;
+                this._inner.style.width = (`${50 * (1 + Math.cos(pi + pi * Math.min(ms_passed / duration, 1)))}%`);
+                if (ms_passed > duration) {
+                    this.stop_progress();
+                }
+            }, increment);
+        }
+    }
+
+    stop_progress() {
+        if (this._is_progress_active){
+            clearInterval(this._interval);
+            this._is_progress_active = false;
+        }
     }
 }

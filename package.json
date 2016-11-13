@@ -2,12 +2,8 @@
   "name": "uzh-2pc",
   "version": "0.0.0",
   "private": true,
-  "scripts": {
-    "start": "node debug.js"
-  },
   "dependencies": {
-    "bluebird": "^3.4.6",
-    "node-uuid": "^1.4.7"
+    "bluebird": "^3.4.6"
   },
   "devDependencies": {
     "babel-cli": "^6.18.0",

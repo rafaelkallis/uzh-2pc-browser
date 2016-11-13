@@ -17,38 +17,34 @@
             <div id="nodes" class="column column-80">
                 <div class="row">
                     <div id="coordinator" class="column column-50 box">
+                        <div id="coordinator-explosion"></div>
                         <a id="coordinator-active-button" class="button">Coordinator</a>
-                        <div id="coordinator-log" class="log">
-                        </div>
-
+                        <div id="coordinator-log" class="log"></div>
                     </div>
                     <div class="column column-50 box">
                         <a class="button">Transactions</a>
-                        <div id="transaction-log" class="log">
-
-                        </div>
+                        <div id="transaction-log" class="log"></div>
                     </div>
                 </div>
                 <div id="subordinates" class="row">
                     <div id="subordinate1" class="column box">
+                        <div id="subordinate1-explosion"></div>
                         <a id="subordinate1-active-button" class="button">Subordinate 1</a>
-                        <div id="subordinate1-log" class="log">
-                        </div>
+                        <div id="subordinate1-log" class="log"></div>
                     </div>
                     <div id="subordinate2" class="column box">
+                        <div id="subordinate2-explosion"></div>
                         <a id="subordinate2-active-button" class="button">Subordinate 2</a>
-                        <div id="subordinate2-log" class="log">
-                        </div>
+                        <div id="subordinate2-log" class="log"></div>
                     </div>
                     <div id="subordinate3" class="column box">
+                        <div id="subordinate3-explosion"></div>
                         <a id="subordinate3-active-button" class="button">Subordinate 3</a>
-                        <div id="subordinate3-log" class="log">
-                        </div>
+                        <div id="subordinate3-log" class="log"></div>
                     </div>
                 </div>
             </div>
             <div id="transactions" class="column column-20">
-
                 <div class="box">
                     <a>Delay:</a>
                     <a id="duration-value">1500</a>
@@ -56,15 +52,16 @@
                     <a>Timeout:</a>
                     <a id="timeout-value">3500</a>
                     <input id="timeout-input" type="range" min="500" max="6500" value="3500" step="500" />
-                    <a class="small"><input type="checkbox" value="sub_vote_no"> Subordinate no vote</a><br>
-                    <a class="small"><input type="checkbox" value="sub_commit_timeout"> Subordinate commit timeout</a><br>
-                    <a class="small"><input type="checkbox" value="sub_abort_timeout"> Subordinate abort timeout</a><br>
-                    <a class="small"><input type="checkbox" value="sub_crash_prepare"> Subordinate crash prepare</a><br>
-                    <a class="small"><input type="checkbox" value="coord_crash_prepare"> Coordinator crash prepare</a><br>
-                    <a class="small"><input type="checkbox" value="sub_crash_prepare"> Subordinate crash commit</a><br>
-                    <a class="small"><input type="checkbox" value="coord_crash_prepare"> Coordinator crash commit</a><br>
-                    <a class="small"><input type="checkbox" value="sub_crash_prepare"> Subordinate crash abort</a><br>
-                    <a class="small"><input type="checkbox" value="coord_crash_prepare"> Coordinator crash abort</a><br>
+                    <a class="small"><input id="sub-vote-no" type="checkbox"> Subordinate no vote</a><br>
+                    <a class="small"><input id="sub-crash-prepare-receiving" type="checkbox"> Subordinate crash prepare receiving</a><br>
+                    <a class="small"><input id="sub-crash-prepare-sending" type="checkbox"> Subordinate crash prepare sending</a><br>
+                    <a class="small"><input id="sub-crash-commit-receiving" type="checkbox"> Subordinate crash commit receiving</a><br>
+                    <a class="small"><input id="sub-crash-commit-sending" type="checkbox"> Subordinate crash commit sending</a><br>
+                    <a class="small"><input id="sub-crash-abort-receiving" type="checkbox"> Subordinate crash abort receiving</a><br>
+                    <a class="small"><input id="sub-crash-abort-sending" type="checkbox"> Subordinate crash abort sending</a><br>
+                    <a class="small"><input id="coord-crash-prepare" type="checkbox"> Coordinator crash prepare</a><br>
+                    <a class="small"><input id="coord-crash-commit" type="checkbox"> Coordinator crash commit</a><br>
+                    <a class="small"><input id="coord-crash-abort" type="checkbox"> Coordinator crash commit</a><br>
                     <a id="start-transaction-button" class="button">Start</a>
                 </div>
 
