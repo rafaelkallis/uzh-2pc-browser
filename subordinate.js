@@ -50,20 +50,13 @@ export class Subordinate extends Observable {
     }
 
     prepare(transaction, delay, bugs) {
-        let vote_no = bugs.includes('sub-vote-no') && Math.random() < 0.33;
-        let crash = bugs.includes('sub-crash-prepare-sending') && Math.random() < 0.33;
-
+        let vote_no = bugs.includes('sub-vote-no') && Math.random() < 0.5;
         return this.is_active()
             .then(() => {
                 if (!vote_no) {
                     return this._log(`${transaction.id}: YES`, delay)
                 } else {
                     return this._log(`${transaction.id}: NO`, delay)
-                }
-            })
-            .then(() => {
-                if (crash) {
-                    setTimeout(() => this.active = false, delay * 0.6);
                 }
             })
             .delay(delay)
@@ -78,29 +71,15 @@ export class Subordinate extends Observable {
     }
 
     commit(transaction, delay, bugs) {
-        let crash = bugs.includes('sub-crash-commit-sending') && Math.random() < 0.33;
-
         return this.is_active()
             .then(() => this._log(`${transaction.id}: ACK`, delay))
-            .then(() => {
-                if (crash) {
-                    setTimeout(() => this.active = false, delay * 0.5);
-                }
-            })
             .delay(delay)
             .then(() => this.is_active());
     }
 
     abort(transaction, delay, bugs) {
-        let crash = bugs.includes('sub-crash-abort-sending') && Math.random() < 0.33;
-
         return this.is_active()
             .then(() => this._log(`${transaction.id}: ACK`, delay))
-            .then(() => {
-                if (crash) {
-                    setTimeout(() => this.active = false, delay * 0.5);
-                }
-            })
             .delay(delay)
             .then(() => this.is_active());
 

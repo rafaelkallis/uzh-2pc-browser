@@ -47,13 +47,13 @@ export class Coordinator extends Observable {
         return Promise.resolve();
     }
 
-    perform_transaction(transaction, delay, timeout, bugs) {
-        this._prepare(transaction, delay, timeout, bugs)
+    perform_transaction(transaction, delay, bugs) {
+        this._prepare(transaction, delay, bugs)
             .catch(PrepareNoVoteError, SubordinateNotActiveError, err =>
-                this._abort(transaction, delay, timeout, bugs)
+                this._abort(transaction, delay, bugs)
                     .then(() => Promise.reject(err))
             )
-            .then(() => this._commit(transaction, delay, timeout, bugs))
+            .then(() => this._commit(transaction, delay, bugs))
             .catch(PrepareNoVoteError, CoordinatorNotActiveError, SubordinateNotActiveError, this._ignore);
     }
 
@@ -63,14 +63,14 @@ export class Coordinator extends Observable {
                 .map(transaction_id => this._pending_commit[transaction_id])
                 .map(transaction_info =>
                     this._log(`${transaction_info.transaction.id}: Recovering Commit`)
-                        .then(() => this._commit(transaction_info.transaction, transaction_info.delay, transaction_info.timeout)))
+                        .then(() => this._commit(transaction_info.transaction, transaction_info.delay, transaction_info.bugs)))
             );
 
             Promise.all(Object.keys(this._pending_abort)
                 .map(transaction_id => this._pending_abort[transaction_id])
                 .map(transaction_info =>
                     this._log(`${transaction_info.transaction.id}: Recovering Abort`)
-                        .then(() => this._abort(transaction_info.transaction, transaction_info.delay, transaction_info.timeout)))
+                        .then(() => this._abort(transaction_info.transaction, transaction_info.delay, transaction_info.bugs)))
             );
         }
         return this.active;
@@ -80,92 +80,168 @@ export class Coordinator extends Observable {
         this.subordinates = this.subordinates.concat(subordinate);
     }
 
-    _prepare(transaction, delay, timeout, bugs) {
-        let crash_sub = bugs.includes('sub-crash-prepare-receiving');
-
+    _prepare(transaction, delay, bugs) {
         return this.is_active()
             .then(() => this._log(`${transaction.id}: Sending Prepare`, delay))
             .then(() => transaction.phase = PREPARE)
+            .then(() => {
+                let coord_crash_sending_idx = bugs.indexOf('coord-crash-prepare-sending');
+                let coord_crash_sending = coord_crash_sending_idx != -1;
+                if (coord_crash_sending) {
+                    bugs.splice(coord_crash_sending_idx, 1);
+                    setTimeout(() => this.active = false, delay * 0.5);
+                }
+            })
+            .then(() => {
+                let coord_crash_receiving_idx = bugs.indexOf('coord-crash-prepare-receiving');
+                let coord_crash_receiving = coord_crash_receiving_idx != -1;
+                if (coord_crash_receiving) {
+                    bugs.splice(coord_crash_receiving_idx, 1);
+                    setTimeout(() => this.active = false, delay * 1.5);
+                }
+            })
             .then(() => Promise.all(this.subordinates.map(sub =>
-                new Promise(resolve => {
-                    if (crash_sub && Math.random() < 0.33) {
-                        setTimeout(() => sub.active = false, delay * 0.5);
-                    }
-                    resolve();
-                })
-                    .then(() => this.is_active())
+                this.is_active()
+                    .then(() => {
+                        let sub_crash_receiving_idx = bugs.indexOf('sub-crash-prepare-receiving');
+                        let sub_crash_receiving = sub_crash_receiving_idx != -1;
+                        if (sub_crash_receiving && Math.random() < 0.6) {
+                            bugs.splice(sub_crash_receiving_idx, 1);
+                            setTimeout(() => sub.active = false, delay * 0.5);
+                        }
+                    })
+                    .then(() => {
+                        let sub_crash_sending_idx = bugs.indexOf('sub-crash-prepare-sending');
+                        let sub_crash_sending = sub_crash_sending_idx != -1;
+                        if (sub_crash_sending && Math.random() < 0.6) {
+                            bugs.splice(sub_crash_sending_idx, 1);
+                            setTimeout(() => sub.active = false, delay * 1.5);
+                        }
+                    })
                     .delay(delay)
                     .then(() => this.is_active())
                     .then(() => sub.prepare(transaction, delay, bugs))
-                    .timeout(timeout) //
             )));
     }
 
-    _commit(transaction, delay, timeout, bugs) {
+    _commit(transaction, delay, bugs) {
         return this.is_active()
             .then(() => this._log(`${transaction.id}: Sending Commit`, delay))
             .then(() => transaction.phase = COMMIT)
-            .then(() => this._pending_commit[transaction.id] = { transaction, delay, timeout })
-            .then(() => Promise.all(this.subordinates.map(sub => this._commit_sub(sub, transaction, delay, timeout, bugs))))
+            .then(() => this._pending_commit[transaction.id] = { transaction, delay, bugs })
+            .then(() => {
+                let coord_crash_sending_idx = bugs.indexOf('coord-crash-commit-sending');
+                let coord_crash_sending = coord_crash_sending_idx != -1;
+                if (coord_crash_sending) {
+                    setTimeout(() => this.active = false, delay * 0.5);
+                    bugs.splice(coord_crash_sending_idx, 1);
+                }
+            })
+            .then(() => {
+                let coord_crash_receiving_idx = bugs.indexOf('coord-crash-commit-receiving');
+                let coord_crash_receiving = coord_crash_receiving_idx != -1;
+                if (coord_crash_receiving) {
+                    setTimeout(() => this.active = false, delay * 1.5);
+                    bugs.splice(coord_crash_receiving_idx, 1);
+                }
+            })
+            .then(() => Promise.all(this.subordinates.map(sub => this._commit_sub(sub, transaction, delay, bugs))))
             .then(() => this.is_active())
             .then(() => delete this._pending_commit[transaction.id])
             .then(() => this._log(`${transaction.id}: Completed`))
             .then(() => transaction.phase = "Finished");
     }
 
-    _commit_sub(sub, transaction, delay, timeout, bugs) {
-        let crash_sub = bugs.includes('sub-crash-commit-receiving') && Math.random() < 0.33;
-
+    _commit_sub(sub, transaction, delay, bugs) {
         let attempt_n = 0;
         let attempt_commit = () =>
             this.is_active()
                 .then(() => {
                     if (attempt_n > 0) {
                         return this._log(`${transaction.id}: retrying Commit on ${sub.id} (${attempt_n} attempt)`, delay);
-                    } else if (crash_sub) {
+                    }
+                })
+                .then(() => {
+                    let sub_crash_receiving_idx = bugs.indexOf('sub-crash-commit-receiving');
+                    let sub_crash_receiving = sub_crash_receiving_idx != -1;
+                    if (sub_crash_receiving && Math.random() < 0.6) {
+                        bugs.splice(sub_crash_receiving_idx, 1);
                         setTimeout(() => sub.active = false, delay * 0.5);
                     }
                 })
-                .then(() => sub.is_active())
+                .then(() => {
+                    let sub_crash_sending_idx = bugs.indexOf('sub-crash-commit-sending');
+                    let sub_crash_sending = sub_crash_sending_idx != -1;
+                    if (sub_crash_sending && Math.random() < 0.6) {
+                        bugs.splice(sub_crash_sending_idx, 1);
+                        setTimeout(() => sub.active = false, delay * 1.5);
+                    }
+                })
                 .delay(delay)
                 .then(() => this.is_active())
                 .then(() => sub.commit(transaction, delay, bugs))
-                .timeout(timeout) //
-                .catch(Promise.TimeoutError, SubordinateNotActiveError, () => Promise.delay(Coordinator._exponential_backoff(++attempt_n)).then(() => attempt_commit()));
+                .catch(SubordinateNotActiveError, () => Promise.delay(Coordinator._exponential_backoff(++attempt_n)).then(() => attempt_commit()));
 
         return attempt_commit();
     }
 
-    _abort(transaction, delay, timeout, bugs) {
+    _abort(transaction, delay, bugs) {
         return this.is_active()
             .then(() => this._log(`${transaction.id}: Sending Abort`, delay))
             .then(() => transaction.phase = ABORT)
-            .then(() => this._pending_abort[transaction.id] = { transaction, delay, timeout })
-            .then(() => Promise.all(this.subordinates.map(sub => this._abort_sub(sub, transaction, delay, timeout, bugs))))
+            .then(() => this._pending_abort[transaction.id] = { transaction, delay, bugs })
+            .then(() => {
+                let coord_crash_sending_idx = bugs.indexOf('coord-crash-abort-sending');
+                let coord_crash_sending = coord_crash_sending_idx != -1;
+                if (coord_crash_sending) {
+                    setTimeout(() => this.active = false, delay * 0.5);
+                    bugs.splice(coord_crash_sending_idx, 1);
+                }
+            })
+            .then(() => {
+                let coord_crash_receiving_idx = bugs.indexOf('coord-crash-abort-receiving');
+                let coord_crash_receiving = coord_crash_receiving_idx != -1;
+                if (coord_crash_receiving) {
+                    setTimeout(() => this.active = false, delay * 1.5);
+                    bugs.splice(coord_crash_receiving_idx, 1);
+                }
+            })
+            .then(() => Promise.all(this.subordinates.map(sub => this._abort_sub(sub, transaction, delay, bugs))))
+            .then(() => this.is_active())
             .then(() => delete this._pending_abort[transaction.id])
             .then(() => this._log(`${transaction.id}: Completed`))
             .then(() => transaction.phase = "Aborted");
     }
 
-    _abort_sub(sub, transaction, delay, timeout, bugs) {
-        let crash_sub = bugs.includes('sub-crash-abort-receiving') && Math.random() < 0.33;
-
+    _abort_sub(sub, transaction, delay, bugs) {
         let attempt_n = 0;
         let attempt_abort = () =>
             this.is_active()
                 .then(() => {
                     if (attempt_n > 0) {
                         return this._log(`${transaction.id}: retrying Abort on ${sub.id} (${attempt_n})`, delay);
-                    } else if (crash_sub) {
+                    }
+                })
+                .then(() => {
+                    let sub_crash_receiving_idx = bugs.indexOf('sub-crash-abort-receiving');
+                    let sub_crash_receiving = sub_crash_receiving_idx != -1;
+                    if (sub_crash_receiving && Math.random() < 0.6) {
+                        bugs.splice(sub_crash_receiving_idx, 1);
                         setTimeout(() => sub.active = false, delay * 0.5);
                     }
                 })
-                .then(() => sub.is_active())
+                .then(() => {
+                    let sub_crash_sending_idx = bugs.indexOf('sub-crash-abort-sending');
+                    let sub_crash_sending = sub_crash_sending_idx != -1;
+                    if (sub_crash_sending && Math.random() < 0.6) {
+                        bugs.splice(sub_crash_sending_idx, 1);
+                        setTimeout(() => sub.active = false, delay * 1.5);
+                    }
+                })
                 .delay(delay)
                 .then(() => this.is_active())
                 .then(() => sub.abort(transaction, delay, bugs))
-                .timeout(timeout) //
-                .catch(Promise.TimeoutError, SubordinateNotActiveError, () => Promise.delay(Coordinator._exponential_backoff(++attempt_n)).then(() => attempt_abort()));
+                .catch(SubordinateNotActiveError, () => Promise.delay(Coordinator._exponential_backoff(++attempt_n)).then(() => attempt_abort()));
         return attempt_abort();
     }
 

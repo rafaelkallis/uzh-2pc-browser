@@ -20,9 +20,23 @@ coordinator.attach_subordinate(sub1);
 coordinator.attach_subordinate(sub2);
 coordinator.attach_subordinate(sub3);
 
-function start_transaction(bugs) {
+function start_transaction() {
+    let bugs = [];
+    document.getElementById('sub-vote-no').checked && bugs.push('sub-vote-no');
+    document.getElementById('sub-crash-prepare-receiving').checked && bugs.push('sub-crash-prepare-receiving');
+    document.getElementById('sub-crash-prepare-sending').checked && bugs.push('sub-crash-prepare-sending');
+    document.getElementById('sub-crash-commit-receiving').checked && bugs.push('sub-crash-commit-receiving');
+    document.getElementById('sub-crash-commit-sending').checked && bugs.push('sub-crash-commit-sending');
+    document.getElementById('sub-crash-abort-receiving').checked && bugs.push('sub-crash-abort-receiving');
+    document.getElementById('sub-crash-abort-sending').checked && bugs.push('sub-crash-abort-sending');
+    document.getElementById('coord-crash-prepare-receiving').checked && bugs.push('coord-crash-prepare-receiving');
+    document.getElementById('coord-crash-prepare-sending').checked && bugs.push('coord-crash-prepare-sending');
+    document.getElementById('coord-crash-commit-receiving').checked && bugs.push('coord-crash-commit-receiving');
+    document.getElementById('coord-crash-commit-sending').checked && bugs.push('coord-crash-commit-sending');
+    document.getElementById('coord-crash-abort-receiving').checked && bugs.push('coord-crash-abort-receiving');
+    document.getElementById('coord-crash-abort-sending').checked && bugs.push('coord-crash-abort-sending');
+
     let delay = document.getElementById('duration-input').value;
-    let timeout = document.getElementById('timeout-input').value;
     let transaction = new Transaction('some_payload');
     let notification = null;
     let log = document.getElementById('transaction-log');
@@ -37,7 +51,7 @@ function start_transaction(bugs) {
         }
     });
 
-    coordinator.perform_transaction(transaction, delay, timeout, bugs);
+    coordinator.perform_transaction(transaction, delay, bugs);
 }
 
 function ready(fn) {
@@ -59,31 +73,13 @@ function bind_log_updater(log_id, active_observable) {
 }
 
 ready(() => {
-    document.getElementById('start-transaction-button').addEventListener('click', () => {
-        let bugs = [];
-        document.getElementById('sub-vote-no').checked && bugs.push('sub-vote-no');
-        document.getElementById('sub-crash-prepare-receiving').checked && bugs.push('sub-crash-prepare-receiving');
-        document.getElementById('sub-crash-prepare-sending').checked && bugs.push('sub-crash-prepare-sending');
-        document.getElementById('sub-crash-commit-receiving').checked && bugs.push('sub-crash-commit-receiving');
-        document.getElementById('sub-crash-commit-sending').checked && bugs.push('sub-crash-commit-sending');
-        document.getElementById('sub-crash-abort-receiving').checked && bugs.push('sub-crash-abort-receiving');
-        document.getElementById('sub-crash-abort-sending').checked && bugs.push('sub-crash-abort-sending');
-        document.getElementById('coord-crash-prepare').checked && bugs.push('coord-crash-prepare');
-        document.getElementById('coord-crash-commit').checked && bugs.push('coord-crash-commit');
-        document.getElementById('coord-crash-abort').checked && bugs.push('coord-crash-abort');
-        start_transaction(bugs);
-    });
-
-    let timeout_value = document.getElementById('timeout-value');
-    let timeout_slider = document.getElementById('timeout-input');
-    timeout_slider.addEventListener('change', () => timeout_value.innerText = timeout_slider.value);
+    document.getElementById('start-transaction-button').addEventListener('click', () => start_transaction());
+    window.onkeydown = (event) => event.keyCode == 13 && start_transaction();
 
     let delay_value = document.getElementById('duration-value');
     let delay_slider = document.getElementById('duration-input');
     delay_slider.addEventListener('change', () => {
-        delay_value.innerText = delay_slider.value;
-        timeout_value.innerText = delay_slider.value * 2 + 500;
-        timeout_slider.value = delay_slider.value * 2 + 500;
+        delay_value.innerText = `Delay: ${delay_slider.value}`;
     });
 
     bind_log_updater('coordinator-log', coordinator);

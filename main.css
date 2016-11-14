@@ -5,10 +5,7 @@ html, body {
 }
 
 .container {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
+    margin: 20px auto;
 }
 
 .log {
@@ -58,16 +55,12 @@ html, body {
 }
 
 .box {
-    margin: 5px;
-    padding: 5px !important;
+    margin: 10px 0;
+    padding: 10px;
     background-color: #f0f0f0;
     border-style: solid;
     border-width: 1px;
     border-radius: 6px;
-}
-
-.small {
-    font-size: 1.1em;
 }
 
 .explosion {
@@ -80,3 +73,42 @@ html, body {
     background-image: url(./explosion.gif);
 
 }
+
+#start-transaction-button {
+    margin-top: 30px;
+    
+}
+
+.button {
+width: 100%;
+}
+
+/* GitHub Corner */
+
+.github-corner:hover .octo-arm {
+                animation: octocat-wave 560ms ease-in-out
+            }
+            
+            @keyframes octocat-wave {
+                0%,
+                100% {
+                    transform: rotate(0)
+                }
+                20%,
+                60% {
+                    transform: rotate(-25deg)
+                }
+                40%,
+                80% {
+                    transform: rotate(10deg)
+                }
+            }
+            
+            @media (max-width:500px) {
+                .github-corner:hover .octo-arm {
+                    animation: none
+                }
+                .github-corner .octo-arm {
+                    animation: octocat-wave 560ms ease-in-out
+                }
+            }

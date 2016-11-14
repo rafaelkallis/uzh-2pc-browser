@@ -28,9 +28,23 @@ coordinator.attach_subordinate(sub1);
 coordinator.attach_subordinate(sub2);
 coordinator.attach_subordinate(sub3);
 
-function start_transaction(bugs) {
+function start_transaction() {
+    var bugs = [];
+    document.getElementById('sub-vote-no').checked && bugs.push('sub-vote-no');
+    document.getElementById('sub-crash-prepare-receiving').checked && bugs.push('sub-crash-prepare-receiving');
+    document.getElementById('sub-crash-prepare-sending').checked && bugs.push('sub-crash-prepare-sending');
+    document.getElementById('sub-crash-commit-receiving').checked && bugs.push('sub-crash-commit-receiving');
+    document.getElementById('sub-crash-commit-sending').checked && bugs.push('sub-crash-commit-sending');
+    document.getElementById('sub-crash-abort-receiving').checked && bugs.push('sub-crash-abort-receiving');
+    document.getElementById('sub-crash-abort-sending').checked && bugs.push('sub-crash-abort-sending');
+    document.getElementById('coord-crash-prepare-receiving').checked && bugs.push('coord-crash-prepare-receiving');
+    document.getElementById('coord-crash-prepare-sending').checked && bugs.push('coord-crash-prepare-sending');
+    document.getElementById('coord-crash-commit-receiving').checked && bugs.push('coord-crash-commit-receiving');
+    document.getElementById('coord-crash-commit-sending').checked && bugs.push('coord-crash-commit-sending');
+    document.getElementById('coord-crash-abort-receiving').checked && bugs.push('coord-crash-abort-receiving');
+    document.getElementById('coord-crash-abort-sending').checked && bugs.push('coord-crash-abort-sending');
+
     var delay = document.getElementById('duration-input').value;
-    var timeout = document.getElementById('timeout-input').value;
     var transaction = new _transaction.Transaction('some_payload');
     var notification = null;
     var log = document.getElementById('transaction-log');
@@ -45,7 +59,7 @@ function start_transaction(bugs) {
         }
     });
 
-    coordinator.perform_transaction(transaction, delay, timeout, bugs);
+    coordinator.perform_transaction(transaction, delay, bugs);
 }
 
 function ready(fn) {
@@ -70,32 +84,16 @@ function bind_log_updater(log_id, active_observable) {
 
 ready(function () {
     document.getElementById('start-transaction-button').addEventListener('click', function () {
-        var bugs = [];
-        document.getElementById('sub-vote-no').checked && bugs.push('sub-vote-no');
-        document.getElementById('sub-crash-prepare-receiving').checked && bugs.push('sub-crash-prepare-receiving');
-        document.getElementById('sub-crash-prepare-sending').checked && bugs.push('sub-crash-prepare-sending');
-        document.getElementById('sub-crash-commit-receiving').checked && bugs.push('sub-crash-commit-receiving');
-        document.getElementById('sub-crash-commit-sending').checked && bugs.push('sub-crash-commit-sending');
-        document.getElementById('sub-crash-abort-receiving').checked && bugs.push('sub-crash-abort-receiving');
-        document.getElementById('sub-crash-abort-sending').checked && bugs.push('sub-crash-abort-sending');
-        document.getElementById('coord-crash-prepare').checked && bugs.push('coord-crash-prepare');
-        document.getElementById('coord-crash-commit').checked && bugs.push('coord-crash-commit');
-        document.getElementById('coord-crash-abort').checked && bugs.push('coord-crash-abort');
-        start_transaction(bugs);
+        return start_transaction();
     });
-
-    var timeout_value = document.getElementById('timeout-value');
-    var timeout_slider = document.getElementById('timeout-input');
-    timeout_slider.addEventListener('change', function () {
-        return timeout_value.innerText = timeout_slider.value;
-    });
+    window.onkeydown = function (event) {
+        return event.keyCode == 13 && start_transaction();
+    };
 
     var delay_value = document.getElementById('duration-value');
     var delay_slider = document.getElementById('duration-input');
     delay_slider.addEventListener('change', function () {
-        delay_value.innerText = delay_slider.value;
-        timeout_value.innerText = delay_slider.value * 2 + 500;
-        timeout_slider.value = delay_slider.value * 2 + 500;
+        delay_value.innerText = 'Delay: ' + delay_slider.value;
     });
 
     bind_log_updater('coordinator-log', coordinator);
@@ -224,15 +222,15 @@ var Coordinator = exports.Coordinator = function (_Observable) {
         }
     }, {
         key: 'perform_transaction',
-        value: function perform_transaction(transaction, delay, timeout, bugs) {
+        value: function perform_transaction(transaction, delay, bugs) {
             var _this2 = this;
 
-            this._prepare(transaction, delay, timeout, bugs).catch(_errors.PrepareNoVoteError, _errors.SubordinateNotActiveError, function (err) {
-                return _this2._abort(transaction, delay, timeout, bugs).then(function () {
+            this._prepare(transaction, delay, bugs).catch(_errors.PrepareNoVoteError, _errors.SubordinateNotActiveError, function (err) {
+                return _this2._abort(transaction, delay, bugs).then(function () {
                     return _bluebird.Promise.reject(err);
                 });
             }).then(function () {
-                return _this2._commit(transaction, delay, timeout, bugs);
+                return _this2._commit(transaction, delay, bugs);
             }).catch(_errors.PrepareNoVoteError, _errors.CoordinatorNotActiveError, _errors.SubordinateNotActiveError, this._ignore);
         }
     }, {
@@ -245,7 +243,7 @@ var Coordinator = exports.Coordinator = function (_Observable) {
                     return _this3._pending_commit[transaction_id];
                 }).map(function (transaction_info) {
                     return _this3._log(transaction_info.transaction.id + ': Recovering Commit').then(function () {
-                        return _this3._commit(transaction_info.transaction, transaction_info.delay, transaction_info.timeout);
+                        return _this3._commit(transaction_info.transaction, transaction_info.delay, transaction_info.bugs);
                     });
                 }));
 
@@ -253,7 +251,7 @@ var Coordinator = exports.Coordinator = function (_Observable) {
                     return _this3._pending_abort[transaction_id];
                 }).map(function (transaction_info) {
                     return _this3._log(transaction_info.transaction.id + ': Recovering Abort').then(function () {
-                        return _this3._abort(transaction_info.transaction, transaction_info.delay, transaction_info.timeout);
+                        return _this3._abort(transaction_info.transaction, transaction_info.delay, transaction_info.bugs);
                     });
                 }));
             }
@@ -266,38 +264,62 @@ var Coordinator = exports.Coordinator = function (_Observable) {
         }
     }, {
         key: '_prepare',
-        value: function _prepare(transaction, delay, timeout, bugs) {
+        value: function _prepare(transaction, delay, bugs) {
             var _this4 = this;
-
-            var crash_sub = bugs.includes('sub-crash-prepare-receiving');
 
             return this.is_active().then(function () {
                 return _this4._log(transaction.id + ': Sending Prepare', delay);
             }).then(function () {
                 return transaction.phase = _constants.PREPARE;
             }).then(function () {
+                var coord_crash_sending_idx = bugs.indexOf('coord-crash-prepare-sending');
+                var coord_crash_sending = coord_crash_sending_idx != -1;
+                if (coord_crash_sending) {
+                    bugs.splice(coord_crash_sending_idx, 1);
+                    setTimeout(function () {
+                        return _this4.active = false;
+                    }, delay * 0.5);
+                }
+            }).then(function () {
+                var coord_crash_receiving_idx = bugs.indexOf('coord-crash-prepare-receiving');
+                var coord_crash_receiving = coord_crash_receiving_idx != -1;
+                if (coord_crash_receiving) {
+                    bugs.splice(coord_crash_receiving_idx, 1);
+                    setTimeout(function () {
+                        return _this4.active = false;
+                    }, delay * 1.5);
+                }
+            }).then(function () {
                 return _bluebird.Promise.all(_this4.subordinates.map(function (sub) {
-                    return new _bluebird.Promise(function (resolve) {
-                        if (crash_sub && Math.random() < 0.33) {
+                    return _this4.is_active().then(function () {
+                        var sub_crash_receiving_idx = bugs.indexOf('sub-crash-prepare-receiving');
+                        var sub_crash_receiving = sub_crash_receiving_idx != -1;
+                        if (sub_crash_receiving && Math.random() < 0.6) {
+                            bugs.splice(sub_crash_receiving_idx, 1);
                             setTimeout(function () {
                                 return sub.active = false;
                             }, delay * 0.5);
                         }
-                        resolve();
                     }).then(function () {
-                        return _this4.is_active();
+                        var sub_crash_sending_idx = bugs.indexOf('sub-crash-prepare-sending');
+                        var sub_crash_sending = sub_crash_sending_idx != -1;
+                        if (sub_crash_sending && Math.random() < 0.6) {
+                            bugs.splice(sub_crash_sending_idx, 1);
+                            setTimeout(function () {
+                                return sub.active = false;
+                            }, delay * 1.5);
+                        }
                     }).delay(delay).then(function () {
                         return _this4.is_active();
                     }).then(function () {
                         return sub.prepare(transaction, delay, bugs);
-                    }).timeout(timeout);
-                } //
-                ));
+                    });
+                }));
             });
         }
     }, {
         key: '_commit',
-        value: function _commit(transaction, delay, timeout, bugs) {
+        value: function _commit(transaction, delay, bugs) {
             var _this5 = this;
 
             return this.is_active().then(function () {
@@ -305,10 +327,28 @@ var Coordinator = exports.Coordinator = function (_Observable) {
             }).then(function () {
                 return transaction.phase = _constants.COMMIT;
             }).then(function () {
-                return _this5._pending_commit[transaction.id] = { transaction: transaction, delay: delay, timeout: timeout };
+                return _this5._pending_commit[transaction.id] = { transaction: transaction, delay: delay, bugs: bugs };
+            }).then(function () {
+                var coord_crash_sending_idx = bugs.indexOf('coord-crash-commit-sending');
+                var coord_crash_sending = coord_crash_sending_idx != -1;
+                if (coord_crash_sending) {
+                    setTimeout(function () {
+                        return _this5.active = false;
+                    }, delay * 0.5);
+                    bugs.splice(coord_crash_sending_idx, 1);
+                }
+            }).then(function () {
+                var coord_crash_receiving_idx = bugs.indexOf('coord-crash-commit-receiving');
+                var coord_crash_receiving = coord_crash_receiving_idx != -1;
+                if (coord_crash_receiving) {
+                    setTimeout(function () {
+                        return _this5.active = false;
+                    }, delay * 1.5);
+                    bugs.splice(coord_crash_receiving_idx, 1);
+                }
             }).then(function () {
                 return _bluebird.Promise.all(_this5.subordinates.map(function (sub) {
-                    return _this5._commit_sub(sub, transaction, delay, timeout, bugs);
+                    return _this5._commit_sub(sub, transaction, delay, bugs);
                 }));
             }).then(function () {
                 return _this5.is_active();
@@ -322,29 +362,38 @@ var Coordinator = exports.Coordinator = function (_Observable) {
         }
     }, {
         key: '_commit_sub',
-        value: function _commit_sub(sub, transaction, delay, timeout, bugs) {
+        value: function _commit_sub(sub, transaction, delay, bugs) {
             var _this6 = this;
-
-            var crash_sub = bugs.includes('sub-crash-commit-receiving') && Math.random() < 0.33;
 
             var attempt_n = 0;
             var attempt_commit = function attempt_commit() {
                 return _this6.is_active().then(function () {
                     if (attempt_n > 0) {
                         return _this6._log(transaction.id + ': retrying Commit on ' + sub.id + ' (' + attempt_n + ' attempt)', delay);
-                    } else if (crash_sub) {
+                    }
+                }).then(function () {
+                    var sub_crash_receiving_idx = bugs.indexOf('sub-crash-commit-receiving');
+                    var sub_crash_receiving = sub_crash_receiving_idx != -1;
+                    if (sub_crash_receiving && Math.random() < 0.6) {
+                        bugs.splice(sub_crash_receiving_idx, 1);
                         setTimeout(function () {
                             return sub.active = false;
                         }, delay * 0.5);
                     }
                 }).then(function () {
-                    return sub.is_active();
+                    var sub_crash_sending_idx = bugs.indexOf('sub-crash-commit-sending');
+                    var sub_crash_sending = sub_crash_sending_idx != -1;
+                    if (sub_crash_sending && Math.random() < 0.6) {
+                        bugs.splice(sub_crash_sending_idx, 1);
+                        setTimeout(function () {
+                            return sub.active = false;
+                        }, delay * 1.5);
+                    }
                 }).delay(delay).then(function () {
                     return _this6.is_active();
                 }).then(function () {
                     return sub.commit(transaction, delay, bugs);
-                }).timeout(timeout) //
-                .catch(_bluebird.Promise.TimeoutError, _errors.SubordinateNotActiveError, function () {
+                }).catch(_errors.SubordinateNotActiveError, function () {
                     return _bluebird.Promise.delay(Coordinator._exponential_backoff(++attempt_n)).then(function () {
                         return attempt_commit();
                     });
@@ -355,7 +404,7 @@ var Coordinator = exports.Coordinator = function (_Observable) {
         }
     }, {
         key: '_abort',
-        value: function _abort(transaction, delay, timeout, bugs) {
+        value: function _abort(transaction, delay, bugs) {
             var _this7 = this;
 
             return this.is_active().then(function () {
@@ -363,11 +412,31 @@ var Coordinator = exports.Coordinator = function (_Observable) {
             }).then(function () {
                 return transaction.phase = _constants.ABORT;
             }).then(function () {
-                return _this7._pending_abort[transaction.id] = { transaction: transaction, delay: delay, timeout: timeout };
+                return _this7._pending_abort[transaction.id] = { transaction: transaction, delay: delay, bugs: bugs };
+            }).then(function () {
+                var coord_crash_sending_idx = bugs.indexOf('coord-crash-abort-sending');
+                var coord_crash_sending = coord_crash_sending_idx != -1;
+                if (coord_crash_sending) {
+                    setTimeout(function () {
+                        return _this7.active = false;
+                    }, delay * 0.5);
+                    bugs.splice(coord_crash_sending_idx, 1);
+                }
+            }).then(function () {
+                var coord_crash_receiving_idx = bugs.indexOf('coord-crash-abort-receiving');
+                var coord_crash_receiving = coord_crash_receiving_idx != -1;
+                if (coord_crash_receiving) {
+                    setTimeout(function () {
+                        return _this7.active = false;
+                    }, delay * 1.5);
+                    bugs.splice(coord_crash_receiving_idx, 1);
+                }
             }).then(function () {
                 return _bluebird.Promise.all(_this7.subordinates.map(function (sub) {
-                    return _this7._abort_sub(sub, transaction, delay, timeout, bugs);
+                    return _this7._abort_sub(sub, transaction, delay, bugs);
                 }));
+            }).then(function () {
+                return _this7.is_active();
             }).then(function () {
                 return delete _this7._pending_abort[transaction.id];
             }).then(function () {
@@ -378,29 +447,38 @@ var Coordinator = exports.Coordinator = function (_Observable) {
         }
     }, {
         key: '_abort_sub',
-        value: function _abort_sub(sub, transaction, delay, timeout, bugs) {
+        value: function _abort_sub(sub, transaction, delay, bugs) {
             var _this8 = this;
-
-            var crash_sub = bugs.includes('sub-crash-abort-receiving') && Math.random() < 0.33;
 
             var attempt_n = 0;
             var attempt_abort = function attempt_abort() {
                 return _this8.is_active().then(function () {
                     if (attempt_n > 0) {
                         return _this8._log(transaction.id + ': retrying Abort on ' + sub.id + ' (' + attempt_n + ')', delay);
-                    } else if (crash_sub) {
+                    }
+                }).then(function () {
+                    var sub_crash_receiving_idx = bugs.indexOf('sub-crash-abort-receiving');
+                    var sub_crash_receiving = sub_crash_receiving_idx != -1;
+                    if (sub_crash_receiving && Math.random() < 0.6) {
+                        bugs.splice(sub_crash_receiving_idx, 1);
                         setTimeout(function () {
                             return sub.active = false;
                         }, delay * 0.5);
                     }
                 }).then(function () {
-                    return sub.is_active();
+                    var sub_crash_sending_idx = bugs.indexOf('sub-crash-abort-sending');
+                    var sub_crash_sending = sub_crash_sending_idx != -1;
+                    if (sub_crash_sending && Math.random() < 0.6) {
+                        bugs.splice(sub_crash_sending_idx, 1);
+                        setTimeout(function () {
+                            return sub.active = false;
+                        }, delay * 1.5);
+                    }
                 }).delay(delay).then(function () {
                     return _this8.is_active();
                 }).then(function () {
                     return sub.abort(transaction, delay, bugs);
-                }).timeout(timeout) //
-                .catch(_bluebird.Promise.TimeoutError, _errors.SubordinateNotActiveError, function () {
+                }).catch(_errors.SubordinateNotActiveError, function () {
                     return _bluebird.Promise.delay(Coordinator._exponential_backoff(++attempt_n)).then(function () {
                         return attempt_abort();
                     });
@@ -6521,20 +6599,12 @@ var Subordinate = exports.Subordinate = function (_Observable) {
         value: function prepare(transaction, delay, bugs) {
             var _this3 = this;
 
-            var vote_no = bugs.includes('sub-vote-no') && Math.random() < 0.33;
-            var crash = bugs.includes('sub-crash-prepare-sending') && Math.random() < 0.33;
-
+            var vote_no = bugs.includes('sub-vote-no') && Math.random() < 0.5;
             return this.is_active().then(function () {
                 if (!vote_no) {
                     return _this3._log(transaction.id + ': YES', delay);
                 } else {
                     return _this3._log(transaction.id + ': NO', delay);
-                }
-            }).then(function () {
-                if (crash) {
-                    setTimeout(function () {
-                        return _this3.active = false;
-                    }, delay * 0.6);
                 }
             }).delay(delay).then(function () {
                 return _this3.is_active();
@@ -6551,16 +6621,8 @@ var Subordinate = exports.Subordinate = function (_Observable) {
         value: function commit(transaction, delay, bugs) {
             var _this4 = this;
 
-            var crash = bugs.includes('sub-crash-commit-sending') && Math.random() < 0.33;
-
             return this.is_active().then(function () {
                 return _this4._log(transaction.id + ': ACK', delay);
-            }).then(function () {
-                if (crash) {
-                    setTimeout(function () {
-                        return _this4.active = false;
-                    }, delay * 0.5);
-                }
             }).delay(delay).then(function () {
                 return _this4.is_active();
             });
@@ -6570,16 +6632,8 @@ var Subordinate = exports.Subordinate = function (_Observable) {
         value: function abort(transaction, delay, bugs) {
             var _this5 = this;
 
-            var crash = bugs.includes('sub-crash-abort-sending') && Math.random() < 0.33;
-
             return this.is_active().then(function () {
                 return _this5._log(transaction.id + ': ACK', delay);
-            }).then(function () {
-                if (crash) {
-                    setTimeout(function () {
-                        return _this5.active = false;
-                    }, delay * 0.5);
-                }
             }).delay(delay).then(function () {
                 return _this5.is_active();
             });

@@ -12,59 +12,140 @@
 </head>
 
 <body>
-    <div class="container">
-        <div class="row">
-            <div id="nodes" class="column column-80">
-                <div class="row">
-                    <div id="coordinator" class="column column-50 box">
+    <div>
+        <a href="https://github.com/rafaelkallis/uzh-2pc" target="_blank" class="github-corner" aria-label="View source on Github">
+            <svg width="80" height="80" viewBox="0 0 250 250" style="fill:#151513; color:#fff; position: absolute; top: 0; border: 0; right: 0;"
+                aria-hidden="true">
+                <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+                <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+                    fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+                <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+                    fill="currentColor" class="octo-body"></path>
+            </svg>
+        </a>
+        <div class="container">
+            <div class="row">
+                <div class="column">
+                    <div class="row">
+                        <h1>Two Phase Commit Protocol</h1>
+                    </div>
+                    <div class="row">
+                        <p>based on <a href="http://www.cs.cmu.edu/~natassa/courses/15-823/F02/papers/p378-mohan.pdf" target="_blank">Transaction Management in the R* Distributed Database Management System</a></p>
+                    </div>
+                    <div class="row">
+                        <a href="https://github.com/alpox" target="_blank">Elias Bernhaut</a> ,&nbsp;
+                        <a href="https://github.com/rafaelkallis" target="_blank">Rafael Kallis</a>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="column column-50">
+                    <div class="box">
                         <div id="coordinator-explosion"></div>
                         <a id="coordinator-active-button" class="button">Coordinator</a>
                         <div id="coordinator-log" class="log"></div>
                     </div>
-                    <div class="column column-50 box">
-                        <a class="button">Transactions</a>
+                </div>
+                <div class="column column-50">
+                    <div class="box">
+                        <a class="button button-outline">Transactions</a>
                         <div id="transaction-log" class="log"></div>
                     </div>
                 </div>
-                <div id="subordinates" class="row">
-                    <div id="subordinate1" class="column box">
+            </div>
+            <div class="row">
+                <div id="subordinate1" class="column column-33">
+                    <div class="box">
                         <div id="subordinate1-explosion"></div>
                         <a id="subordinate1-active-button" class="button">Subordinate 1</a>
                         <div id="subordinate1-log" class="log"></div>
                     </div>
-                    <div id="subordinate2" class="column box">
+                </div>
+                <div id="subordinate2" class="column column-33">
+                    <div class="box">
                         <div id="subordinate2-explosion"></div>
                         <a id="subordinate2-active-button" class="button">Subordinate 2</a>
                         <div id="subordinate2-log" class="log"></div>
                     </div>
-                    <div id="subordinate3" class="column box">
+                </div>
+                <div id="subordinate3" class="column column-33">
+                    <div class="box">
                         <div id="subordinate3-explosion"></div>
                         <a id="subordinate3-active-button" class="button">Subordinate 3</a>
                         <div id="subordinate3-log" class="log"></div>
                     </div>
                 </div>
             </div>
-            <div id="transactions" class="column column-20">
-                <div class="box">
-                    <a>Delay:</a>
-                    <a id="duration-value">1500</a>
-                    <input id="duration-input" type="range" min="0" max="3000" value="1500" step="500" />
-                    <a>Timeout:</a>
-                    <a id="timeout-value">3500</a>
-                    <input id="timeout-input" type="range" min="500" max="6500" value="3500" step="500" />
-                    <a class="small"><input id="sub-vote-no" type="checkbox"> Subordinate no vote</a><br>
-                    <a class="small"><input id="sub-crash-prepare-receiving" type="checkbox"> Subordinate crash prepare receiving</a><br>
-                    <a class="small"><input id="sub-crash-prepare-sending" type="checkbox"> Subordinate crash prepare sending</a><br>
-                    <a class="small"><input id="sub-crash-commit-receiving" type="checkbox"> Subordinate crash commit receiving</a><br>
-                    <a class="small"><input id="sub-crash-commit-sending" type="checkbox"> Subordinate crash commit sending</a><br>
-                    <a class="small"><input id="sub-crash-abort-receiving" type="checkbox"> Subordinate crash abort receiving</a><br>
-                    <a class="small"><input id="sub-crash-abort-sending" type="checkbox"> Subordinate crash abort sending</a><br>
-                    <a class="small"><input id="coord-crash-prepare" type="checkbox" disabled> Coordinator crash prepare</a><br>
-                    <a class="small"><input id="coord-crash-commit" type="checkbox" disabled> Coordinator crash commit</a><br>
-                    <a class="small"><input id="coord-crash-abort" type="checkbox" disabled> Coordinator crash commit</a><br>
-                    <a id="start-transaction-button" class="button">Start</a>
+            <div class="row">
+                <div class="column column-100">
+                    <div class="box">
+                        <div class="row">
+                            <div class="column column-50">
+                                <div>
+                                    <input id="sub-vote-no" type="checkbox">
+                                    <label class="label-inline" for="sub-vote-no">Subordinate no vote</label>
+                                </div>
+                                <div>
+                                    <input id="sub-crash-prepare-receiving" type="checkbox">
+                                    <label class="label-inline" for="sub-crash-prepare-receiving">Subordinate crash prepare receiving</label>
+                                </div>
+                                <div>
+                                    <input id="sub-crash-prepare-sending" type="checkbox">
+                                    <label class="label-inline" for="sub-crash-prepare-sending">Subordinate crash prepare sending</label>
+                                </div>
+                                <div>
+                                    <input id="sub-crash-commit-receiving" type="checkbox">
+                                    <label class="label-inline" for="sub-crash-commit-receiving">Subordinate crash commit receiving</label>
+                                </div>
+                                <div>
+                                    <input id="sub-crash-commit-sending" type="checkbox">
+                                    <label class="label-inline" for="sub-crash-commit-sending">Subordinate crash commit sending</label>
+                                </div>
+                                <div>
+                                    <input id="sub-crash-abort-receiving" type="checkbox">
+                                    <label class="label-inline" for="sub-crash-abort-receiving">Subordinate crash abort receiving</label>
+                                </div>
+                                <div>
+                                    <input id="sub-crash-abort-sending" type="checkbox">
+                                    <label class="label-inline" for="sub-crash-abort-sending">Subordinate crash abort sending</label>
+                                </div>
+                                <div>
+                                    <label id="duration-value" for="duration-input">Delay: 1500</label>
+                                    <input id="duration-input" type="range" min="500" max="3000" value="1500" step="500">
+                                </div>
+                            </div>
+                            <div class="column column-50">
+                                <div>
+                                    <input id="coord-crash-prepare-receiving" type="checkbox">
+                                    <label class="label-inline" for="coord-crash-prepare-receiving">Coordinator crash prepare receiving</label>
+                                </div>
+                                <div>
+                                    <input id="coord-crash-prepare-sending" type="checkbox">
+                                    <label class="label-inline" for="coord-crash-prepare-sending">Coordinator crash prepare sending</label>
+                                </div>
+                                <div>
+                                    <input id="coord-crash-commit-receiving" type="checkbox">
+                                    <label class="label-inline" for="coord-crash-commit-receiving">Coordinator crash commit receiving</label>
+                                </div>
+                                <div>
+                                    <input id="coord-crash-commit-sending" type="checkbox">
+                                    <label class="label-inline" for="coord-crash-commit-sending">Coordinator crash commit sending</label>
+                                </div>
+                                <div>
+                                    <input id="coord-crash-abort-receiving" type="checkbox">
+                                    <label class="label-inline" for="coord-crash-abort-receiving">Coordinator crash abort receiving</label>
+                                </div>
+                                <div>
+                                    <input id="coord-crash-abort-sending" type="checkbox">
+                                    <label class="label-inline" for="coord-crash-abort-sending">Coordinator crash abort sending</label>
+                                </div>
+                                <div>
+                                    <a id="start-transaction-button" class="button">Start</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-
             </div>
         </div>
     </div>
